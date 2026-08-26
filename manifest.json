@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Fudan SafeTest",
+  "version": "2026.8.27",
+  "description": "打开复旦实验室安全考试并自动选择题库答案；永不自动提交。",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "http://lsem.fudan.edu.cn/*",
+    "https://lsem.fudan.edu.cn/*"
+  ],
+  "action": {
+    "default_title": "Fudan SafeTest",
+    "default_popup": "extension/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://lsem.fudan.edu.cn/*",
+        "https://lsem.fudan.edu.cn/*"
+      ],
+      "js": ["extension/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["asset/questions.json"],
+      "matches": [
+        "http://lsem.fudan.edu.cn/*",
+        "https://lsem.fudan.edu.cn/*"
+      ]
+    }
+  ]
+}
