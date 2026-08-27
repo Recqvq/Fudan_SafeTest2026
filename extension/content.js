@@ -6,6 +6,7 @@
   const COURSE_RUN_KEY = "fudanSafeTestCourseRun";
   const COURSE_SESSION_KEY = "fudanSafeTestCourseSession";
   const COURSE_RUN_MAX_AGE = 24 * 60 * 60 * 1000;
+  const COURSE_PATH_PREFIX = "/fd_aqks_new/examProgress/examOnline/";
   const MAX_QUESTIONS = 200;
   const MAX_COURSES = 200;
   let examRunning = false;
@@ -98,6 +99,26 @@
     return String(element?.innerText || element?.value || element?.textContent || "")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  function isCourseAutomationPage() {
+    return (
+      location.hostname === "lsem.fudan.edu.cn" &&
+      location.pathname.startsWith(COURSE_PATH_PREFIX)
+    );
+  }
+
+  function hasSafeCourseTarget(element) {
+    if (!(element instanceof HTMLAnchorElement)) return true;
+    const rawHref = element.getAttribute("href") || "";
+    if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("javascript:")) {
+      return true;
+    }
+    try {
+      return new URL(element.href, location.href).hostname === "lsem.fudan.edu.cn";
+    } catch (_) {
+      return false;
+    }
   }
 
   function readingCompleteControl() {
@@ -196,6 +217,7 @@
 
     for (const element of document.querySelectorAll(selector)) {
       if (!visible(element) || element.closest("#fudan-safe-test-status")) continue;
+      if (!hasSafeCourseTarget(element)) continue;
       const label = readableText(element);
       const container = courseContainer(element);
       const context = readableText(container);
@@ -210,7 +232,14 @@
       if (/考试|答题|考场|交卷|提交|阅读完成|完成阅读/.test(label)) continue;
       if (/已完成|已学习|100%/.test(context) && !/未完成/.test(context)) continue;
 
-      const contextLooksPending = /未完成|未学习|未阅读|待学习|学习中/.test(context);
+      const pendingPattern = /未完成|未学习|未阅读|待学习|学习中/;
+      const labelLooksPending = pendingPattern.test(label);
+      const contextLooksPending = pendingPattern.test(context);
+      const structuredContainer = container.matches(
+        "li, tr, article, .card, .item, .course, .course-item, .lesson-item"
+      );
+      const singleCourseContext =
+        element === container || structuredContainer || context.length < 300;
       const normalizedLabel = normalize(label);
       const labelLooksLikeCourse =
         /^(?:开始|继续|进入|去|点击|查看|打开)(?:学习|阅读|课程|观看|课程学习|在线学习)$/.test(
@@ -218,21 +247,22 @@
         ) ||
         /开始学习|继续学习|进入学习|去学习|开始阅读|继续阅读/.test(label) ||
         (contextLooksPending &&
+          singleCourseContext &&
           /^(?:学习|阅读|课程|观看|课程学习|在线学习|进入|查看|打开|详情|点击进入)$/.test(
             normalizedLabel
           ));
       const actionLooksLikeCourse = /course|study|learn|lesson|read|video|resource|material/i.test(
         attributes
       );
-      const pendingClickableCard = contextLooksPending && element === container;
+      const pendingClickableCard = labelLooksPending && element === container;
       const pendingCourseLink =
-        contextLooksPending &&
+        labelLooksPending &&
         Boolean(label) &&
         element.matches('a, button, [role="button"], [onclick]');
 
       if (
         !labelLooksLikeCourse &&
-        !(contextLooksPending && actionLooksLikeCourse) &&
+        !(contextLooksPending && singleCourseContext && actionLooksLikeCourse) &&
         !pendingClickableCard &&
         !pendingCourseLink
       ) {
@@ -296,6 +326,9 @@
   }
 
   async function openNextCourse(state) {
+    if (!isCourseAutomationPage()) {
+      throw new Error("当前不是课程列表或阅读页面，已停止以防误点");
+    }
     const visited = new Set(state.visited);
     const next = courseCandidates().find((candidate) => !visited.has(candidate.key));
     if (!next) return false;
@@ -324,6 +357,9 @@
       if (!state) throw new Error("课程自动运行请求已失效，请重新点击扩展");
 
       while (courseRunning) {
+        if (!isCourseAutomationPage()) {
+          throw new Error("页面已离开课程区域，已停止以防误点");
+        }
         const reading = readingState();
         if (reading) {
           state.phase = "reading";

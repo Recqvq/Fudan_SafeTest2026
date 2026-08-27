@@ -10,9 +10,29 @@ async function activeTab() {
   return tab;
 }
 
-function isLsemTab(tab) {
+async function startCourseInTab(tabId) {
   try {
-    return new URL(tab?.url).hostname === "lsem.fudan.edu.cn";
+    return await chrome.tabs.sendMessage(tabId, {
+      type: "FUDAN_SAFE_COURSE_START",
+    });
+  } catch (_) {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["extension/content.js"],
+    });
+    return chrome.tabs.sendMessage(tabId, {
+      type: "FUDAN_SAFE_COURSE_START",
+    });
+  }
+}
+
+function isCourseTab(tab) {
+  try {
+    const url = new URL(tab?.url);
+    return (
+      url.hostname === "lsem.fudan.edu.cn" &&
+      url.pathname.startsWith("/fd_aqks_new/examProgress/examOnline/")
+    );
   } catch (_) {
     return false;
   }
@@ -69,27 +89,26 @@ coursesButton.addEventListener("click", async () => {
     return;
   }
 
-  if (!isLsemTab(tab)) {
+  if (!isCourseTab(tab)) {
     await chrome.storage.local.remove("fudanSafeTestCourseRun");
-    status.textContent = "请先切回实验室安全课程页面，再点击自动阅读。";
+    status.textContent = "请先切回考前学习资料的课程列表或阅读页面，再点击自动阅读。";
     coursesButton.disabled = false;
     return;
   }
 
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      type: "FUDAN_SAFE_COURSE_START",
-    });
+    const response = await startCourseInTab(tab.id);
     if (response?.started) {
       status.textContent = "已开始，请查看网页右上角状态。";
       return;
     }
-  } catch (_) {
-    // The extension may have just been reloaded, so this page has no content script yet.
+    throw new Error("课程页面未确认启动");
+  } catch (error) {
+    await chrome.storage.local.remove("fudanSafeTestCourseRun");
+    status.textContent = "无法在当前课程页启动；页面保持不变，请重新打开课程列表后再试。";
+    coursesButton.disabled = false;
+    console.error("Fudan SafeTest course start:", error);
   }
-
-  await chrome.tabs.reload(tab.id);
-  status.textContent = "正在原地刷新当前课程页，加载后会自动继续。";
 });
 
 stopCoursesButton.addEventListener("click", async () => {
