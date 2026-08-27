@@ -1,6 +1,7 @@
 (() => {
-  if (globalThis.__fudanSafeTestLoaded) return;
-  globalThis.__fudanSafeTestLoaded = true;
+  const SCRIPT_VERSION = "2026.8.36";
+  if (globalThis.__fudanSafeTestLoaded === SCRIPT_VERSION) return;
+  globalThis.__fudanSafeTestLoaded = SCRIPT_VERSION;
 
   const AUTO_RUN_KEY = "fudanSafeTestAutoRun";
   const COURSE_RUN_KEY = "fudanSafeTestCourseRun";
@@ -8,6 +9,8 @@
   const COURSE_RUN_MAX_AGE = 24 * 60 * 60 * 1000;
   const COURSE_PATH_PREFIX = "/fd_aqks_new/examProgress/examOnline/";
   const QUESTION_MATCH_THRESHOLD = 0.9;
+  const ANSWER_CLICK_DELAY = 250;
+  const ANSWER_SAVE_DELAY = 700;
   const MAX_QUESTIONS = 200;
   const MAX_COURSES = 200;
   let examRunning = false;
@@ -514,47 +517,13 @@
       .trim();
   }
 
-  function nativeOptionControl(option) {
-    return option.querySelector('input[type="radio"], input[type="checkbox"]');
-  }
-
-  function optionSelected(option) {
-    const input = nativeOptionControl(option);
-    if (input) return input.checked;
-    return Boolean(
-      option.matches(
-        '[aria-checked="true"], .checked, .selected, .active, .is-checked, .layui-form-checked, .layui-form-radioed'
-      ) ||
-        option.querySelector(
-          'input:checked, [aria-checked="true"], .checked, .selected, .active, .is-checked, .layui-form-checked, .layui-form-radioed'
-        )
+  function optionClickTarget(option) {
+    return (
+      Array.from(option.querySelectorAll("div")).find(visible) ||
+      option.querySelector('input[type="radio"], input[type="checkbox"]') ||
+      option.querySelector("label") ||
+      option
     );
-  }
-
-  function optionClickTargets(option) {
-    const input = nativeOptionControl(option);
-    const targets = [
-      input,
-      option.querySelector("label"),
-      option.querySelector('[role="radio"], [role="checkbox"]'),
-      option.querySelector(
-        ".layui-form-radio, .layui-form-checkbox, .el-radio, .el-checkbox"
-      ),
-      Array.from(option.querySelectorAll("div")).find(rendered),
-      option,
-    ].filter(Boolean);
-    return [...new Set(targets)];
-  }
-
-  async function setOptionSelected(option, wanted) {
-    if (optionSelected(option) === wanted) return true;
-    for (const target of optionClickTargets(option)) {
-      if (target.disabled || target.getAttribute("aria-disabled") === "true") continue;
-      target.click();
-      await sleep(150);
-      if (optionSelected(option) === wanted) return true;
-    }
-    return false;
   }
 
   async function answerCurrentQuestion(questions) {
@@ -589,42 +558,15 @@
       };
     }
 
-    for (const option of options) {
-      if (correctOptions.includes(option) || !optionSelected(option)) continue;
-      if (!(await setOptionSelected(option, false))) {
-        return {
-          area,
-          stem,
-          selected: 0,
-          similarity: match.similarity,
-          skipped: true,
-          reason: "无法清除已有的错误选项",
-        };
-      }
-    }
-
-    const confirmed = [];
     for (const option of correctOptions) {
-      if (await setOptionSelected(option, true)) {
-        confirmed.push(option);
-        continue;
-      }
-      for (const selectedOption of confirmed.reverse()) {
-        await setOptionSelected(selectedOption, false);
-      }
-      return {
-        area,
-        stem,
-        selected: 0,
-        similarity: match.similarity,
-        skipped: true,
-        reason: `网页未确认选中：${confirmed.length}/${correct.size}`,
-      };
+      optionClickTarget(option).click();
+      await sleep(ANSWER_CLICK_DELAY);
     }
+    await sleep(ANSWER_SAVE_DELAY);
     return {
       area,
       stem,
-      selected: confirmed.length,
+      selected: correctOptions.length,
       similarity: match.similarity,
       skipped: false,
     };
