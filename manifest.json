@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fudan SafeTest",
-  "version": "2026.8.32",
+  "version": "2026.8.34",
   "description": "按真实计时自动完成安全课程阅读，并为安全考试选择题库答案；永不自动提交试卷。",
   "permissions": ["activeTab", "storage", "scripting"],
   "host_permissions": [

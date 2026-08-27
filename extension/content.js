@@ -23,6 +23,10 @@
       .trim();
   }
 
+  function normalizeQuestionStem(text) {
+    return normalize(text).replace(/^(?:第)?\d+(?:题)?[.．、:：)）]?/, "");
+  }
+
   function rendered(element) {
     return Boolean(
       element &&
@@ -478,10 +482,10 @@
   }
 
   function bestQuestion(stem, questions) {
-    const normalizedStem = normalize(stem);
+    const normalizedStem = normalizeQuestionStem(stem);
     let best = null;
     for (const question of questions) {
-      const candidate = normalize(question.stem);
+      const candidate = normalizeQuestionStem(question.stem);
       const similarity =
         candidate === normalizedStem
           ? 1
@@ -514,22 +518,44 @@
     const stem = questionStem(area);
     const match = bestQuestion(stem, questions);
     if (!match || match.similarity < 0.75) {
-      throw new Error(`题目匹配度过低：${stem}`);
+      return {
+        area,
+        stem,
+        selected: 0,
+        similarity: match?.similarity || 0,
+        skipped: true,
+        reason: "题库未匹配",
+      };
     }
 
     const correct = new Set(match.question.correct_answers.map(normalize));
-    let selected = 0;
+    const controls = [];
     for (const option of area.querySelectorAll('[id="radiolist"]')) {
       if (!correct.has(normalize(optionText(option)))) continue;
       const control = Array.from(option.querySelectorAll("div")).find(visible) || option;
+      controls.push(control);
+    }
+    if (controls.length !== correct.size) {
+      return {
+        area,
+        stem,
+        selected: 0,
+        similarity: match.similarity,
+        skipped: true,
+        reason: `答案选项不完整：${controls.length}/${correct.size}`,
+      };
+    }
+    for (const control of controls) {
       control.click();
-      selected += 1;
       await sleep(80);
     }
-    if (selected !== correct.size) {
-      throw new Error(`答案选项不完整：${selected}/${correct.size}，题目：${stem}`);
-    }
-    return { area, stem, selected, similarity: match.similarity };
+    return {
+      area,
+      stem,
+      selected: controls.length,
+      similarity: match.similarity,
+      skipped: false,
+    };
   }
 
   async function enterExamIfNeeded() {
@@ -576,14 +602,23 @@
   async function answerAll(questions) {
     let processed = 0;
     let selected = 0;
+    let skipped = 0;
 
     while (processed < MAX_QUESTIONS) {
       const result = await answerCurrentQuestion(questions);
       processed += 1;
       selected += result.selected;
-      setStatus(
-        `正在自动答题：${processed} 题\n匹配度：${Math.round(result.similarity * 100)}%\n${result.stem.slice(0, 45)}`
-      );
+      if (result.skipped) {
+        skipped += 1;
+        setStatus(
+          `正在自动答题：已处理 ${processed} 题\n已跳过 ${skipped} 题：${result.reason}\n${result.stem.slice(0, 45)}`
+        );
+        console.warn("Fudan SafeTest skipped:", result.reason, result.stem);
+      } else {
+        setStatus(
+          `正在自动答题：已处理 ${processed} 题\n已作答 ${processed - skipped} 题，跳过 ${skipped} 题\n匹配度：${Math.round(result.similarity * 100)}%\n${result.stem.slice(0, 45)}`
+        );
+      }
 
       const next = findControl(["下一题"], ["button", "a"]);
       if (!next) break;
@@ -594,7 +629,7 @@
     }
 
     if (processed === MAX_QUESTIONS) throw new Error("题目超过 200 道，已安全停止");
-    return { processed, selected };
+    return { processed, answered: processed - skipped, selected, skipped };
   }
 
   async function clearAutoRun() {
@@ -612,7 +647,7 @@
       const result = await answerAll(questions);
       await clearAutoRun();
       setStatus(
-        `答题完成：${result.processed} 题，选择 ${result.selected} 个答案。\n不会自动提交，请核对后手动提交。`,
+        `答题扫描完成：${result.processed} 题。\n已作答 ${result.answered} 题，跳过 ${result.skipped} 题，选择 ${result.selected} 个答案。\n未匹配题保持空白；不会自动提交，请核对后手动提交。`,
         "done"
       );
     } catch (error) {
