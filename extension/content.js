@@ -1,5 +1,5 @@
 (() => {
-  const SCRIPT_VERSION = "2026.8.36";
+  const SCRIPT_VERSION = "2026.8.37";
   if (globalThis.__fudanSafeTestLoaded === SCRIPT_VERSION) return;
   globalThis.__fudanSafeTestLoaded = SCRIPT_VERSION;
 
@@ -10,7 +10,7 @@
   const COURSE_PATH_PREFIX = "/fd_aqks_new/examProgress/examOnline/";
   const QUESTION_MATCH_THRESHOLD = 0.9;
   const ANSWER_CLICK_DELAY = 250;
-  const ANSWER_SAVE_DELAY = 700;
+  const ANSWER_SAVE_DELAY = 1000;
   const MAX_QUESTIONS = 200;
   const MAX_COURSES = 200;
   let examRunning = false;
@@ -517,13 +517,29 @@
       .trim();
   }
 
+  function optionSelected(option) {
+    const input = option.querySelector('input[type="radio"], input[type="checkbox"]');
+    const wrapper = option.querySelector(
+      '[class*="iradio_"], [class*="icheckbox_"]'
+    );
+    return Boolean(input?.checked || wrapper?.classList.contains("checked"));
+  }
+
   function optionClickTarget(option) {
     return (
-      Array.from(option.querySelectorAll("div")).find(visible) ||
+      option.querySelector("ins.iCheck-helper") ||
+      option.querySelector('[class*="iradio_"], [class*="icheckbox_"]') ||
       option.querySelector('input[type="radio"], input[type="checkbox"]') ||
       option.querySelector("label") ||
       option
     );
+  }
+
+  async function setOptionSelected(option, wanted) {
+    if (optionSelected(option) === wanted) return true;
+    optionClickTarget(option).click();
+    await sleep(ANSWER_CLICK_DELAY);
+    return optionSelected(option) === wanted;
   }
 
   async function answerCurrentQuestion(questions) {
@@ -558,15 +574,43 @@
       };
     }
 
+    for (const option of options) {
+      if (correctOptions.includes(option) || !optionSelected(option)) continue;
+      if (!(await setOptionSelected(option, false))) {
+        return {
+          area,
+          stem,
+          selected: 0,
+          similarity: match.similarity,
+          skipped: true,
+          reason: "无法清除已有的错误选项",
+        };
+      }
+    }
+
+    const confirmed = [];
     for (const option of correctOptions) {
-      optionClickTarget(option).click();
-      await sleep(ANSWER_CLICK_DELAY);
+      if (await setOptionSelected(option, true)) {
+        confirmed.push(option);
+        continue;
+      }
+      for (const selectedOption of [...confirmed].reverse()) {
+        await setOptionSelected(selectedOption, false);
+      }
+      return {
+        area,
+        stem,
+        selected: 0,
+        similarity: match.similarity,
+        skipped: true,
+        reason: `iCheck 未确认选中：${confirmed.length}/${correct.size}`,
+      };
     }
     await sleep(ANSWER_SAVE_DELAY);
     return {
       area,
       stem,
-      selected: correctOptions.length,
+      selected: confirmed.length,
       similarity: match.similarity,
       skipped: false,
     };
