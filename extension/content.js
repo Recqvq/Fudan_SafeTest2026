@@ -113,6 +113,12 @@
 
   function remainingSeconds(root = document.body) {
     const text = readableText(root);
+    const minuteSecond = text.match(
+      /剩余时间\s*[:：]?\s*(\d+)\s*分\s*(\d+)\s*秒/i
+    );
+    if (minuteSecond) {
+      return Number(minuteSecond[1]) * 60 + Number(minuteSecond[2]);
+    }
     const patterns = [
       /剩余时间\s*[:：]?\s*(\d+)\s*(?:秒|s)/i,
       /还需(?:阅读|学习)?\s*(\d+)\s*(?:秒|s)/i,
@@ -219,11 +225,16 @@
         attributes
       );
       const pendingClickableCard = contextLooksPending && element === container;
+      const pendingCourseLink =
+        contextLooksPending &&
+        Boolean(label) &&
+        element.matches('a, button, [role="button"], [onclick]');
 
       if (
         !labelLooksLikeCourse &&
         !(contextLooksPending && actionLooksLikeCourse) &&
-        !pendingClickableCard
+        !pendingClickableCard &&
+        !pendingCourseLink
       ) {
         continue;
       }
@@ -269,7 +280,10 @@
     state.phase = "closing";
     state.phaseStartedAt = Date.now();
     await saveCourseRunState(state);
-    setStatus("计时已结束，正在点击“阅读完成”……");
+    setStatus("计时已结束，正在滚动到“阅读完成”……");
+    control.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    await sleep(600);
+    setStatus("正在点击“阅读完成”……");
     control.click();
     await waitFor(
       () => !control.isConnected || !rendered(control) || !readingCompleteControl(),
