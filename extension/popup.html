@@ -16,6 +16,9 @@
       }
       h1 { margin: 0 0 8px; font-size: 19px; }
       p { margin: 8px 0 14px; color: #526079; }
+      .section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #dce3ef; }
+      .section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+      h2 { margin: 0 0 6px; font-size: 15px; }
       button {
         width: 100%;
         border: 0;
@@ -28,15 +31,31 @@
         cursor: pointer;
       }
       button:disabled { cursor: wait; opacity: 0.65; }
+      button.course { background: #267a42; }
+      button.stop {
+        margin-top: 9px;
+        color: #8a2c20;
+        background: transparent;
+        border: 1px solid #d8a39b;
+      }
       .safe { margin-top: 12px; color: #267a42; font-weight: 650; }
       #status { min-height: 22px; margin: 10px 0 0; color: #526079; }
     </style>
   </head>
   <body>
     <h1>Fudan SafeTest</h1>
-    <p>点击后会打开安全考试。完成登录即可自动进入并答题。</p>
-    <button id="start" type="button">打开并自动答题</button>
-    <div class="safe">不会自动提交试卷</div>
+    <div class="section">
+      <h2>课程阅读</h2>
+      <p>按网站真实倒计时等待，到 0s 后点击“阅读完成”，再继续下一门。</p>
+      <button class="course" id="courses" type="button">自动完成课程阅读</button>
+      <button class="stop" id="stop-courses" type="button">停止课程自动阅读</button>
+    </div>
+    <div class="section">
+      <h2>安全考试</h2>
+      <p>打开安全考试，完成登录后自动进入并选择题库答案。</p>
+      <button id="start" type="button">打开并自动答题</button>
+      <div class="safe">不会自动提交试卷</div>
+    </div>
     <div id="status" role="status"></div>
     <script src="popup.js"></script>
   </body>

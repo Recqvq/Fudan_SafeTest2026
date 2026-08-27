@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Fudan SafeTest",
-  "version": "2026.8.27",
-  "description": "打开复旦实验室安全考试并自动选择题库答案；永不自动提交。",
+  "version": "2026.8.28",
+  "description": "按真实计时自动完成安全课程阅读，并为安全考试选择题库答案；永不自动提交试卷。",
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "http://lsem.fudan.edu.cn/*",
