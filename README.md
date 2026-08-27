@@ -1,6 +1,6 @@
 # Fudan SafeTest 2026
 
-复旦大学实验室安全课程阅读与考试辅助 Chrome 扩展，无需安装 Python、uv、Selenium 或 ChromeDriver。
+复旦大学实验室安全课程阅读与考试辅助 Chrome 扩展，无需安装 Python、uv、Selenium 或 ChromeDriver。同时更新的大量题库。
 
 扩展提供两个独立功能：
 
