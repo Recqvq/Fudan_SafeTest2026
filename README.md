@@ -9,6 +9,10 @@
 
 > 扩展不会查找或点击提交按钮。答题完成后，请核对答案并手动提交。
 
+新生入学测试见：
+https://github.com/Recqvq/Fudan_FreshmanTest2026/tree/main
+
+
 ## 最短使用流程
 
 1. 下载仓库并加载为 Chrome 未打包扩展。
